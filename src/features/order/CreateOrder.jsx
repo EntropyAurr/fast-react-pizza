@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Form, redirect } from "react-router-dom";
+import { Form, redirect, useNavigation } from "react-router-dom";
 import { createOrder } from "../../services/apiRestaurant";
 
 // https://uibakery.io/regex-library/phone-number
@@ -30,6 +30,8 @@ const fakeCart = [
 ];
 
 function CreateOrder() {
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
   // const [withPriority, setWithPriority] = useState(false);
   const cart = fakeCart;
 
@@ -70,16 +72,17 @@ function CreateOrder() {
 
         <div>
           <input type="hidden" name="cart" value={JSON.stringify(cart)} />
-          <button>Order now</button>
+          <button disabled={isSubmitting}>{isSubmitting ? "Placing order..." : "Order now"}</button>
         </div>
       </Form>
     </div>
   );
 }
 
+// Write/Mutate data using action. When the Form is submitted, it will then create a request that will intercepted by the action function that is connected with React Router
 export async function action({ request }) {
   const formData = await request.formData();
-  const data = Object.fromEntries(formData);
+  const data = Object.fromEntries(formData); // convert to an object
 
   const order = {
     ...data,
@@ -88,6 +91,11 @@ export async function action({ request }) {
   };
 
   const newOrder = await createOrder(order);
+
+  const errors = {};
+  if (!isValidPhone(order.phone)) errors.phone = "Please give us correct phone number";
+
+  if (Object.keys(errors).length > 0) return errors;
 
   return redirect(`/order/${newOrder.id}`);
 }
