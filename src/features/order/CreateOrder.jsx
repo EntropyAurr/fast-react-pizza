@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { Form, redirect, useActionData, useNavigation } from 'react-router-dom';
 import { createOrder } from '../../services/apiRestaurant';
 import { clearCart, getCart, getTotalCartPrice } from '../cart/cartSlice';
-import { getUser } from '../user/userSlice';
+import { fetchAddress, getUser } from '../user/userSlice';
 import { formatCurrency } from '../../utils/helpers';
 import store from '../../store.jsx';
 
@@ -16,9 +16,10 @@ const isValidPhone = (str) => /^\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-
 function CreateOrder() {
   const [withPriority, setWithPriority] = useState(false);
 
-  const username = useSelector(getUser);
   const cart = useSelector(getCart);
   const totalCartPrice = useSelector(getTotalCartPrice);
+  const { username, status: addressStatus, position, address, error: errorAddress } = useSelector(getUser);
+  const isLoadingAddress = addressStatus === 'loading';
 
   const priorityPrice = withPriority ? totalCartPrice * 0.2 : 0;
   const totalPrice = totalCartPrice + priorityPrice;
@@ -27,6 +28,7 @@ function CreateOrder() {
   const isSubmitting = navigation.state === 'submitting';
 
   const formErrors = useActionData();
+  const dispatch = useDispatch();
 
   if (!cart.length) return <EmptyCart />;
 
@@ -52,13 +54,28 @@ function CreateOrder() {
           </div>
         </div>
 
-        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
           <label htmlFor="address" className="sm:basis-40">
             Address
           </label>
           <div className="flex-grow">
-            <input className="input w-full" id="address" type="text" name="address" required placeholder="Enter your address" />
+            <input className="input w-full" id="address" type="text" name="address" required placeholder="Enter your address" disabled={isLoadingAddress} defaultValue={address} />
+            {addressStatus === 'error' && <p className="mt-2 rounded-full bg-red-100 p-2 pl-5 text-xs text-red-700">{errorAddress}</p>}
           </div>
+
+          {!position.latitude && !position.longitude && (
+            <span className="absolute right-[3px] top-[32px] z-50 sm:top-[1px] md:top-[2.5px]">
+              <Button
+                type="small"
+                onClick={(e) => {
+                  e.preventDefault();
+                  dispatch(fetchAddress());
+                }}
+                disabled={isLoadingAddress}>
+                Get position
+              </Button>
+            </span>
+          )}
         </div>
 
         <div className="mb-12 flex items-center gap-5">
@@ -70,8 +87,9 @@ function CreateOrder() {
 
         <div>
           <input type="hidden" name="cart" value={JSON.stringify(cart)} />
+          <input type="hidden" name="position" value={position.latitude && position.longitude ? `${position.latitude}, ${position.longitude}` : ''} />
 
-          <Button disabled={isSubmitting} type="primary">
+          <Button disabled={isSubmitting || isLoadingAddress} type="primary">
             {isSubmitting ? 'Placing order...' : `Order now ${formatCurrency(totalPrice)}`}
           </Button>
         </div>
@@ -91,16 +109,17 @@ export async function action({ request }) {
     priority: data.priority === 'true',
   };
 
-  const newOrder = await createOrder(order);
-
   const errors = {};
   if (!isValidPhone(order.phone)) errors.phone = 'Please give us your correct phone number.';
-
   if (Object.keys(errors).length > 0) return errors;
+
+  const newOrder = await createOrder(order);
+  console.log(newOrder); // use to find the id of the order
+  // when newOrder is created (Form is submitted) => hidden information in json file will be added to this new order: id, estimatedDelivery,...
 
   store.dispatch(clearCart());
 
-  return redirect(`/order/${newOrder.id}`);
+  return redirect(`/order/${newOrder.id}`); // where does the id come from?
 }
 
 export default CreateOrder;

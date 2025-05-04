@@ -1,14 +1,24 @@
-import { useLoaderData } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useFetcher, useLoaderData } from 'react-router-dom';
 import { getOrder } from '../../services/apiRestaurant';
 import { calcMinutesLeft, formatCurrency, formatDate } from '../../utils/helpers';
 import OrderItem from '../order/OrderItem';
 
 function Order() {
-  // Everyone can search for all orders, so for privacy reasons we're gonna gonna exclude names or address, these are only for the restaurant staff
-
   const order = useLoaderData();
+  const fetcher = useFetcher();
 
-  const { id, status, priority, priorityPrice, orderPrice, estimatedDelivery, cart } = order;
+  // use fetcher when the component first-mounted
+  useEffect(
+    function () {
+      if (!fetcher.data && fetcher.state === 'idle') fetcher.load('/menu'); // load the data and store in the fetcher object and allow to retrieve the data from there whenever we want
+    },
+    [fetcher],
+  );
+  console.log(fetcher.data);
+
+  // Everyone can search for all orders, so for privacy reasons we're gonna gonna exclude names or address, these are only for the restaurant staff
+  const { id, status, priority, priorityPrice, orderPrice, estimatedDelivery, cart } = order; // id, orderPrice, estimatedDelivery ??
   const deliveryIn = calcMinutesLeft(estimatedDelivery);
 
   return (
@@ -28,7 +38,7 @@ function Order() {
 
       <ul className="divide-y divide-stone-200 border-b border-t">
         {cart.map((item) => (
-          <OrderItem item={item} key={item.pizzaId} />
+          <OrderItem item={item} key={item.pizzaId} isLoadingIngredients={fetcher.state === 'loading'} ingredients={fetcher?.data?.find((el) => el.id === item.pizzaId)?.ingredients ?? []} /> // if ingredients is undefined (still loading) => return an empty array []
         ))}
       </ul>
 

@@ -4,7 +4,7 @@ import { getMenu } from '../../services/apiRestaurant';
 import MenuItem from '../../features/menu/MenuItem';
 
 function Menu() {
-  const menu = useLoaderData();
+  const menu = useLoaderData(); // fetch data for the Menu component before it rendered (making data available for the component)
 
   return (
     <ul className="divide-y divide-stone-200 px-2">
